@@ -19,8 +19,39 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         let pos = cap.get(0).unwrap().start();
         let symbol = cap.get(0).unwrap().as_str();
+
         let (x, y) = pos_to_xy(pos, width);
-        println!("{pos}({x}, {y}){symbol}{}", buf.as_bytes()[xy_to_pos(x, y, width)] as char);
+        println!(
+            "{pos}({x}, {y}){symbol}{}",
+            buf.as_bytes()[xy_to_pos(x, y, width)] as char
+        );
+
+        // scan right
+        'r: for fun in pos+1..(y+1)*width {
+            let (fx, fy) = pos_to_xy(fun, width);
+            if fx >= width {
+                break 'r;
+            };
+            let c = buf.as_bytes()[fun] as char;
+            if c.is_numeric() {
+                println!("\t{} {}", fun, c);
+            } else {
+                break 'r;
+            }
+        }
+        // scan left
+        'l: for fun in (y*width..pos).rev() {
+            let (fx, fy) = pos_to_xy(fun, width);
+            // if fx < 0 {
+            //     break 'l;
+            // }
+            let c = buf.as_bytes()[fun] as char;
+            if c.is_numeric() {
+                println!("\tl{} {}", fun, c);
+            } else {
+                break 'l;
+            }
+        }
     }
 
     // println!("{num}");
@@ -28,10 +59,7 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn pos_to_xy(pos: usize, width: usize) -> (usize, usize) {
-    (
-        pos % width,
-        (pos - pos%width)/width,
-    )
+    (pos % width, (pos - pos % width) / width)
 }
 fn xy_to_pos(x: usize, y: usize, width: usize) -> usize {
     width * y + x
