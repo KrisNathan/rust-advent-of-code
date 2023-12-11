@@ -1,4 +1,4 @@
-use regex::Regex;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{prelude::*, BufReader};
 
@@ -9,66 +9,151 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut buf = String::new();
     reader.read_to_string(&mut buf)?;
 
-    let width = buf.lines().next().unwrap_or("").len() + 2; // add +2 to incl \r\n
-    println!("{}", width);
-    println!("'{}'", buf.as_bytes()[width - 1] as char); // 140 is \r 141 is \n
-    let re = Regex::new("[@#$%&*+=-]+")?;
-    for (i, cap) in re.captures_iter(&buf).enumerate() {
-        if i > 10 {
-            return Ok(());
-        }
-        let pos = cap.get(0).unwrap().start();
-        let symbol = cap.get(0).unwrap().as_str();
+    println!("{} {}", part_1(&buf), part_2(&buf));
+    Ok(())
+}
 
-        let (x, y) = pos_to_xy(pos, width);
-        println!(
-            "{pos}({x}, {y}){symbol}{}",
-            buf.as_bytes()[xy_to_pos(x, y, width)] as char
-        );
+pub fn part_1(input: &str) -> u32 {
+    let engine = input
+        .trim()
+        .lines()
+        .map(|line| line.trim().chars().collect::<Vec<_>>())
+        .collect::<Vec<_>>();
 
-        // scan right
-        'r: for fun in pos+1..(y+1)*width {
-            let (fx, fy) = pos_to_xy(fun, width);
-            if fx >= width {
-                break 'r;
-            };
-            let c = buf.as_bytes()[fun] as char;
-            if c.is_numeric() {
-                println!("\t{} {}", fun, c);
-            } else {
-                break 'r;
+    let mut sum = 0;
+    let mut current_num = 0;
+    let mut has_adjacent_symbol = false;
+
+    for row_idx in 0..engine.len() {
+        for col_idx in 0..engine[row_idx].len() {
+            let value = engine[row_idx][col_idx];
+
+            // Not a number, not interested
+            if !value.is_ascii_digit() {
+                continue;
             }
-        }
-        // scan left
-        'l: for fun in (y*width..pos).rev() {
-            let (fx, fy) = pos_to_xy(fun, width);
-            // if fx < 0 {
-            //     break 'l;
-            // }
-            let c = buf.as_bytes()[fun] as char;
-            if c.is_numeric() {
-                println!("\tl{} {}", fun, c);
-            } else {
-                break 'l;
+
+            // check if any adjacent tile is a symbol
+            for row_offset in -1..=1 {
+                for col_offset in -1..=1 {
+                    // Skip self
+                    if row_offset == 0 && col_offset == 0 {
+                        continue;
+                    }
+
+                    let adjacent_row_idx = row_idx as i32 + row_offset;
+                    let adjacent_col_idx = col_idx as i32 + col_offset;
+
+                    // Out of bounds
+                    if adjacent_row_idx < 0
+                        || adjacent_row_idx >= engine.len() as i32
+                        || adjacent_col_idx < 0
+                        || adjacent_col_idx >= engine[adjacent_row_idx as usize].len() as i32
+                    {
+                        continue;
+                    }
+
+                    let adjacent_value =
+                        engine[adjacent_row_idx as usize][adjacent_col_idx as usize];
+                    if !adjacent_value.is_ascii_digit() && adjacent_value != '.' {
+                        has_adjacent_symbol = true;
+                    }
+                }
+            }
+
+            // Adjust the number currently being built (concatenate a digit using math)
+            current_num *= 10;
+            current_num += value.to_digit(10).unwrap();
+
+            // If we reached the end of the line, or the next horizontal coordinate is not a digit, the current number is complete
+            // check if the number has an adjacent symbol, and reset the temporary values before starting on a new number
+            if col_idx + 1 >= engine[row_idx].len()
+                || !engine[row_idx][col_idx + 1].is_ascii_digit()
+            {
+                if has_adjacent_symbol {
+                    sum += current_num;
+                }
+
+                current_num = 0;
+                has_adjacent_symbol = false;
             }
         }
     }
 
-    // println!("{num}");
-    Ok(())
+    sum
 }
 
-fn pos_to_xy(pos: usize, width: usize) -> (usize, usize) {
-    (pos % width, (pos - pos % width) / width)
-}
-fn xy_to_pos(x: usize, y: usize, width: usize) -> usize {
-    width * y + x
-}
+pub fn part_2(input: &str) -> u32 {
+    let engine = input
+        .trim()
+        .lines()
+        .map(|line| line.trim().chars().collect::<Vec<_>>())
+        .collect::<Vec<_>>();
 
-/*
-012345__
-*/
+    // key: star coordinate, val: list of adjacent numbers
+    let mut stars: HashMap<(i32, i32), Vec<u32>> = HashMap::new();
+    let mut current_num = 0;
+    let mut adjacent_star_positions: HashSet<(i32, i32)> = HashSet::new();
 
-fn parse(line: &String) -> u32 {
-    1
+    for row_idx in 0..engine.len() {
+        for col_idx in 0..engine[row_idx].len() {
+            let value = engine[row_idx][col_idx];
+
+            // Not a number, not interested
+            if !value.is_ascii_digit() {
+                continue;
+            }
+
+            // check if any adjacent tile is a star
+            for row_offset in -1..=1 {
+                for col_offset in -1..=1 {
+                    // Skip self
+                    if row_offset == 0 && col_offset == 0 {
+                        continue;
+                    }
+
+                    let adjacent_row_idx = row_idx as i32 + row_offset;
+                    let adjacent_col_idx = col_idx as i32 + col_offset;
+
+                    // Out of bounds
+                    if adjacent_row_idx < 0
+                        || adjacent_row_idx >= engine.len() as i32
+                        || adjacent_col_idx < 0
+                        || adjacent_col_idx >= engine[adjacent_row_idx as usize].len() as i32
+                    {
+                        continue;
+                    }
+
+                    if engine[adjacent_row_idx as usize][adjacent_col_idx as usize] == '*' {
+                        adjacent_star_positions.insert((adjacent_row_idx, adjacent_col_idx));
+                    }
+                }
+            }
+
+            // Adjust the number currently being built (concatenate a digit using math)
+            current_num *= 10;
+            current_num += value.to_digit(10).unwrap();
+
+            // If we reached the end of the line, or the next horizontal coordinate is not a digit, the current number is complete
+            if col_idx + 1 >= engine[row_idx].len()
+                || !engine[row_idx][col_idx + 1].is_ascii_digit()
+            {
+                // add all stars to the variable keeping track of stars (potential gears)
+                for point in &adjacent_star_positions {
+                    stars.entry(*point).or_default().push(current_num);
+                }
+
+                // reset the temporary values before starting on a new number
+                current_num = 0;
+                adjacent_star_positions.clear();
+            }
+        }
+    }
+
+    stars
+        .values()
+        // only stars with exactly 2 adjacent numbers are gears
+        .filter(|numbers| numbers.len() == 2)
+        .map(|numbers| numbers[0] * numbers[1])
+        .sum()
 }
