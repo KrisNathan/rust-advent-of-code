@@ -25,9 +25,6 @@ pub fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("{}", card_counts.iter().sum::<u32>());
 
-    // let num: u32 = reader.lines().map(|line| parse(&line.unwrap())).sum();
-    // println!("{num}");
-
     Ok(())
 }
 
